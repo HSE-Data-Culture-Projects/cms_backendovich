@@ -1,14 +1,59 @@
 const db = require('../models');
 const Task = db.Task;
+const Topic = db.Topic;
 
-exports.getTasksByTopic = async (req, res) => {
-    const { topicId } = req.params;
-    const tasks = await Task.findAll({ where: { topicId } });
-    res.json(tasks);
+// Получение всех задач (независимо от темы)
+exports.getAllTasks = async (req, res) => {
+    try {
+        const tasks = await Task.findAll();
+        res.json(tasks);
+    } catch (error) {
+        console.error('Error fetching tasks:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 };
 
+// Получение задач по теме
+exports.getTasksByTopic = async (req, res) => {
+    const { topicId } = req.params;
+
+    try {
+        const topic = await Topic.findByPk(topicId, {
+            include: [{ model: db.Task, as: 'tasks' }]
+        });
+
+        if (!topic) {
+            return res.status(404).json({ message: 'Topic not found' });
+        }
+
+        res.json(topic.tasks);
+    } catch (error) {
+        console.error('Error fetching tasks:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// Добавление новой задачи и привязка её к темам
 exports.addTask = async (req, res) => {
-    const { name, type, content, topicId } = req.body;
-    const task = await Task.create({ name, type, content, topicId });
-    res.status(201).json(task);
+    const { content, topicIds } = req.body;
+
+    try {
+        // Создаем новое задание
+        const task = await Task.create({ content });
+
+        // Если переданы topicIds, связываем задание с темами
+        if (topicIds && topicIds.length > 0) {
+            const topics = await Topic.findAll({
+                where: {
+                    id: topicIds
+                }
+            });
+            await task.setTopics(topics);
+        }
+
+        res.status(201).json(task);
+    } catch (error) {
+        console.error('Error creating task:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 };
