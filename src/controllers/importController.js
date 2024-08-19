@@ -47,3 +47,20 @@ exports.downloadFile = async (req, res) => {
         res.status(500).json({ error: "Error downloading file" });
     }
 };
+
+exports.updateFile = async (req, res) => {
+    const { id } = req.params;
+    const { originalname } = req.body;
+
+    try {
+        const file = await File.findByPk(id);
+        if (!file) {
+            return res.status(404).json({ message: 'File not found' });
+        }
+
+        await file.update({ originalname });
+        res.status(200).json(file);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};

@@ -57,3 +57,29 @@ exports.addTask = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+
+exports.updateTask = async (req, res) => {
+    const { id } = req.params;
+    const { content, topicIds } = req.body;
+
+    try {
+        const task = await Task.findByPk(id);
+        if (!task) {
+            return res.status(404).json({ message: 'Task not found' });
+        }
+
+        await task.update({ content });
+
+        if (topicIds && topicIds.length > 0) {
+            const topics = await Topic.findAll({
+                where: { id: topicIds },
+            });
+            await task.setTopics(topics);
+        }
+
+        res.status(200).json(task);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};

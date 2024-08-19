@@ -60,3 +60,28 @@ exports.addTopic = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+exports.updateTopic = async (req, res) => {
+    const { id } = req.params;
+    const { name, examIds } = req.body;
+
+    try {
+        const topic = await Topic.findByPk(id);
+        if (!topic) {
+            return res.status(404).json({ message: 'Topic not found' });
+        }
+
+        await topic.update({ name });
+
+        if (examIds && examIds.length > 0) {
+            const exams = await Exam.findAll({
+                where: { id: examIds },
+            });
+            await topic.setExams(exams);
+        }
+
+        res.status(200).json(topic);
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
