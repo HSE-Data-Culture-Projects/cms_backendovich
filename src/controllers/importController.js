@@ -1,31 +1,49 @@
-const xml2js = require('xml2js');
-const fs = require('fs');
+// controllers/fileController.js
 const db = require('../models');
-const Task = db.Task;
+const fs = require('fs');
+const path = require('path');
+const File = db.File;
 
-exports.importTasks = async (req, res) => {
+exports.uploadFile = async (req, res) => {
     const file = req.file;
     if (!file) {
         return res.status(400).send({ message: "Please upload a file!" });
     }
 
-    const parser = new xml2js.Parser();
-    fs.readFile(file.path, async (err, data) => {
-        if (err) throw err;
-
-        parser.parseString(data, async (err, result) => {
-            if (err) throw err;
-
-            const questions = result.quiz.question;
-            const tasks = questions.map((question, index) => ({
-                name: question.name[0].text[0],
-                type: question.$.type,
-                content: JSON.stringify(question),
-                topicId: null  // Привязка к теме может быть реализована
-            }));
-
-            await Task.bulkCreate(tasks);
-            res.status(201).send({ message: "Tasks imported successfully!" });
+    try {
+        const newFile = await File.create({
+            filename: file.filename,
+            filepath: file.path,
+            originalname: file.originalname,
         });
-    });
+
+        res.status(201).json(newFile);
+    } catch (error) {
+        res.status(500).json({ error: "Error while saving file" });
+    }
+};
+
+exports.getFiles = async (req, res) => {
+    try {
+        const files = await File.findAll();
+        res.json(files);
+    } catch (error) {
+        res.status(500).json({ error: "Error fetching files" });
+    }
+};
+
+exports.downloadFile = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const file = await File.findByPk(id);
+        if (!file) {
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        const filepath = path.resolve(file.filepath);
+        res.download(filepath, file.originalname);
+    } catch (error) {
+        res.status(500).json({ error: "Error downloading file" });
+    }
 };

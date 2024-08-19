@@ -7,6 +7,8 @@
   - .DS_Store
   - app.js
   - config
+    - .DS_Store
+    - config.json
     - dbConfig.js
   - controllers
     - examController.js
@@ -23,4 +25,3 @@
     - importRoutes.js
     - taskRoutes.js
     - topicRoutes.js
-  - uploads
