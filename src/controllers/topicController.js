@@ -71,6 +71,7 @@ exports.updateTopic = async (req, res) => {
             return res.status(404).json({ message: 'Topic not found' });
         }
 
+        console.log('Updating topic:', { name, examIds });
         await topic.update({ name });
 
         if (examIds && examIds.length > 0) {
@@ -82,6 +83,7 @@ exports.updateTopic = async (req, res) => {
 
         res.status(200).json(topic);
     } catch (error) {
+        console.error('Error updating topic:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
@@ -101,4 +103,25 @@ exports.deleteTopic = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+// Получение одной темы по ID
+exports.getTopicById = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const topic = await Topic.findByPk(id, {
+            include: [{ model: db.Exam, as: 'exams' }]
+        });
+
+        if (!topic) {
+            return res.status(404).json({ message: 'Topic not found' });
+        }
+
+        res.status(200).json(topic);
+    } catch (error) {
+        console.error('Error fetching topic:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 

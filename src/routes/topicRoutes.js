@@ -4,6 +4,7 @@ const topicController = require('../controllers/topicController');
 
 router.get('/', topicController.getAllTopics);
 router.get('/:examId', topicController.getTopicsByExam);
+router.get('/:id', topicController.getTopicById);
 router.post('/', topicController.addTopic);
 router.patch('/:id', topicController.updateTopic);
 router.delete('/:id', topicController.deleteTopic);
