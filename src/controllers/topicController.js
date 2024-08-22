@@ -85,3 +85,20 @@ exports.updateTopic = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+exports.deleteTopic = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const topic = await Topic.findByPk(id);
+        if (!topic) {
+            return res.status(404).json({ message: 'Topic not found' });
+        }
+
+        await topic.destroy();
+        res.status(200).json({ message: 'Topic deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+

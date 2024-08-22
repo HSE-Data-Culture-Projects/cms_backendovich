@@ -29,3 +29,20 @@ exports.updateExam = async (req, res) => {
     }
 };
 
+exports.deleteExam = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const exam = await Exam.findByPk(id);
+        if (!exam) {
+            return res.status(404).json({ message: 'Exam not found' });
+        }
+
+        await exam.destroy();
+        res.status(200).json({ message: 'Exam deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+

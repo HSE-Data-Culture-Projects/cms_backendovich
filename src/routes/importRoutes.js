@@ -9,6 +9,6 @@ router.post('/', upload.single('file'), fileController.uploadFile);
 router.get('/', fileController.getFiles);
 router.get('/:id/download', fileController.downloadFile);
 router.patch('/:id', fileController.updateFile);
-
+router.delete('/:id', fileController.deleteFile);
 
 module.exports = router;

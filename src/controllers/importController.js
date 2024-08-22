@@ -64,3 +64,23 @@ exports.updateFile = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+exports.deleteFile = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const file = await File.findByPk(id);
+        if (!file) {
+            return res.status(404).json({ message: 'File not found' });
+        }
+
+        // Удаляем файл из файловой системы
+        fs.unlinkSync(file.filepath);
+
+        // Удаляем запись из базы данных
+        await file.destroy();
+        res.status(200).json({ message: 'File deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
