@@ -9,6 +9,15 @@ module.exports = (sequelize, DataTypes) => {
         content: {
             type: DataTypes.TEXT,
             allowNull: false,
+        },
+        filename: {
+            type: DataTypes.STRING, // Имя загруженного файла
+        },
+        filepath: {
+            type: DataTypes.STRING, // Путь к файлу в файловой системе
+        },
+        originalname: {
+            type: DataTypes.STRING, // Оригинальное имя файла
         }
     });
 
