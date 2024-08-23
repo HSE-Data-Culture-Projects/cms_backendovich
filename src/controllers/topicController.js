@@ -2,9 +2,12 @@ const db = require('../models');
 const Exam = db.Exam;
 const Topic = db.Topic;
 
+// Получение всех тем (с экзаменами)
 exports.getAllTopics = async (req, res) => {
     try {
-        const topics = await Topic.findAll();
+        const topics = await Topic.findAll({
+            include: [{ model: Exam, as: 'exams' }] // Включаем связанные экзамены
+        });
         res.json(topics);
     } catch (error) {
         console.error('Error fetching topics:', error);
@@ -37,6 +40,7 @@ exports.getTopicsByExam = async (req, res) => {
 };
 
 
+// Добавление новой темы с привязкой к нескольким экзаменам
 exports.addTopic = async (req, res) => {
     const { name, examIds } = req.body;
 
@@ -48,7 +52,7 @@ exports.addTopic = async (req, res) => {
         if (examIds && examIds.length > 0) {
             const exams = await Exam.findAll({
                 where: {
-                    id: examIds
+                    id: examIds // Ожидаем, что examIds будет массивом
                 }
             });
             await topic.setExams(exams); // Устанавливаем связь между темой и экзаменами
@@ -61,6 +65,7 @@ exports.addTopic = async (req, res) => {
     }
 };
 
+// Обновление темы с привязкой к нескольким экзаменам
 exports.updateTopic = async (req, res) => {
     const { id } = req.params;
     const { name, examIds } = req.body;
@@ -71,12 +76,12 @@ exports.updateTopic = async (req, res) => {
             return res.status(404).json({ message: 'Topic not found' });
         }
 
-        console.log('Updating topic:', { name, examIds });
         await topic.update({ name });
 
+        // Привязка темы к экзаменам
         if (examIds && examIds.length > 0) {
             const exams = await Exam.findAll({
-                where: { id: examIds },
+                where: { id: examIds }
             });
             await topic.setExams(exams);
         }
@@ -87,6 +92,7 @@ exports.updateTopic = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
 
 exports.deleteTopic = async (req, res) => {
     const { id } = req.params;

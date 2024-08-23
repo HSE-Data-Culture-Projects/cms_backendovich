@@ -12,15 +12,19 @@ function safeUnlink(filepath) {
 }
 
 // Получение всех задач (с файлами)
+// Получение всех задач (с файлами и темами)
 exports.getAllTasks = async (req, res) => {
     try {
-        const tasks = await Task.findAll();
+        const tasks = await Task.findAll({
+            include: [{ model: Topic, as: 'topics' }] // Добавляем связанные темы
+        });
         res.json(tasks);
     } catch (error) {
         console.error('Error fetching tasks:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
 
 // Добавление новой задачи с файлом
 exports.addTask = async (req, res) => {
