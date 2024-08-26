@@ -1,3 +1,4 @@
+// src/app.js
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -9,18 +10,12 @@ app.use(express.json());
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Подключение маршрутов
-const examRoutes = require('./routes/examRoutes');
-const topicRoutes = require('./routes/topicRoutes');
-const taskRoutes = require('./routes/taskRoutes');
+app.use('/api/exams', require('./routes/examRoutes'));
+app.use('/api/topics', require('./routes/topicRoutes'));
+app.use('/api/tasks', require('./routes/taskRoutes'));
+app.use('/api/gigachat', './routes/gigaChatRoutes');
 
-app.use('/api/exams', examRoutes);
-app.use('/api/topics', topicRoutes);
-app.use('/api/tasks', taskRoutes);
-
-// Подключение к базе данных и запуск сервера
 const PORT = process.env.PORT || 3000;
-
 db.sequelize.sync({ force: false }).then(() => {
     app.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}.`);
