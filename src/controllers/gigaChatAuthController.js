@@ -1,28 +1,70 @@
-// src/controllers/authController.js
-const axios = require('axios');
+const https = require('https');
 const qs = require('qs');
+const uuid = require('uuid');
 
-exports.getAccessToken = async (req, res) => {
+let accessToken = null;
+let accessTokenExpiresAt = null;
+
+async function getAccessToken() {
+    if (accessToken && accessTokenExpiresAt > Date.now()) {
+        return accessToken;
+    }
+
     const data = qs.stringify({
         grant_type: 'client_credentials',
-        scope: 'GIGACHAT_API_PERS',
-        client_id: 'd7408d85-fce1-4d87-abb1-5474290d1f58',
-        client_secret: '3d58d114-6e70-471b-82e4-afb2b8ea530c'
+        scope: 'GIGACHAT_API_PERS'
     });
 
-    const config = {
-        method: 'post',
-        url: 'https://ngw.devices.sberbank.ru:9443/api/v2/oauth',
+    const clientId = 'd7408d85-fce1-4d87-abb1-5474290d1f58';
+    const clientSecret = '3d58d114-6e70-471b-82e4-afb2b8ea530c';
+    const rqUid = uuid.v4();
+
+    const auth = Buffer.from(`${clientId}:${clientSecret}`, 'utf8').toString('base64');
+
+    const options = {
+        method: 'POST',
+        hostname: 'ngw.devices.sberbank.ru',
+        port: 9443,
+        path: '/api/v2/oauth',
+        rejectUnauthorized: false,
         headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        data: data
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': `Basic ${auth}`,
+            'RqUID': rqUid
+        }
     };
 
+    return new Promise((resolve, reject) => {
+        const reqExternal = https.request(options, (resExternal) => {
+            let data = '';
+            resExternal.on('data', (chunk) => {
+                data += chunk;
+            });
+            resExternal.on('end', () => {
+                try {
+                    const parsedData = JSON.parse(data);
+                    accessToken = parsedData.access_token;
+                    accessTokenExpiresAt = parsedData.expires_at;
+                    resolve(accessToken);
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        });
+
+        reqExternal.on('error', (error) => {
+            reject(error);
+        });
+
+        reqExternal.write(data);
+        reqExternal.end();
+    });
+}
+
+exports.getAccessToken = async (req, res) => {
     try {
-        const response = await axios(config);
-        const { access_token } = response.data;
-        res.status(200).json({ access_token });
+        const token = await getAccessToken();
+        res.status(200).json({ access_token: token });
     } catch (error) {
         console.error('Error fetching access token:', error);
         res.status(500).json({ error: 'Failed to retrieve access token' });

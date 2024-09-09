@@ -1,11 +1,9 @@
-// src/routes/gigaChatRoutes.js
 const express = require('express');
 const router = express.Router();
-const gigaChatAuthController = require('../controllers/gigaChatAuthController');
-const gigaChatController = require('../controllers/gigaChatController');
+const { getAccessToken } = require('../controllers/gigaChatAuthController');
+const { generateText } = require('../controllers/gigaChatController');
 
-router.post('/auth/token', gigaChatAuthController.getAccessToken);
-
-router.post('/generate', gigaChatController.generateText);
+router.post('/auth/token', getAccessToken);
+router.post('/generate', generateText);
 
 module.exports = router;
