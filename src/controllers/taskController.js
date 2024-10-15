@@ -1,7 +1,7 @@
 const db = require('../models');
 const Task = db.Task;
 const Topic = db.Topic;
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 
 // Проверка на существование файла перед удалением
@@ -25,6 +25,60 @@ exports.getAllTasks = async (req, res) => {
     }
 };
 
+exports.getTasksByTopicId = async (req, res) => {
+    const { topicId } = req.params;
+
+    try {
+        // Проверяем, существует ли тема с данным ID
+        const topic = await Topic.findByPk(topicId);
+        if (!topic) {
+            return res.status(404).json({ message: 'Тема не найдена' });
+        }
+
+        // Получаем все задания, связанные с данной темой
+        const tasks = await topic.getTasks({
+            include: [
+                {
+                    model: Topic,
+                    as: 'topics',
+                    attributes: ['id', 'name'], // Выбираем необходимые поля
+                    through: { attributes: [] } // Не включаем поля таблицы связи
+                }
+            ]
+        });
+
+        // Читаем содержимое XML-файлов для каждого задания
+        const tasksWithXml = await Promise.all(tasks.map(async (task) => {
+            if (task.filepath) {
+                try {
+                    const xmlContent = await fs.readFile(task.filepath, 'utf-8');
+                    return {
+                        id: task.id,
+                        content: xmlContent
+                    };
+                } catch (fileError) {
+                    console.error(`Ошибка при чтении файла для задания ID ${task.id}:`, fileError);
+                    return {
+                        id: task.id,
+                        content: null,
+                        error: 'Не удалось прочитать файл задания.'
+                    };
+                }
+            } else {
+                return {
+                    id: task.id,
+                    content: null,
+                    error: 'Файл задания не указан.'
+                };
+            }
+        }));
+
+        res.status(200).json(tasksWithXml);
+    } catch (error) {
+        console.error('Ошибка при получении заданий по ID темы:', error);
+        res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    }
+};
 
 // Добавление новой задачи с файлом
 exports.addTask = async (req, res) => {
