@@ -1,6 +1,5 @@
-// models/task.js
 module.exports = (sequelize, DataTypes) => {
-    const Task = sequelize.define("Task", {
+    const Task = sequelize.define('Task', {
         id: {
             type: DataTypes.UUID,
             defaultValue: DataTypes.UUIDV4,
@@ -11,14 +10,14 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
         },
         filename: {
-            type: DataTypes.STRING, // Имя загруженного файла
+            type: DataTypes.STRING,
         },
         filepath: {
-            type: DataTypes.STRING, // Путь к файлу в файловой системе
+            type: DataTypes.STRING,
         },
         originalname: {
-            type: DataTypes.STRING, // Оригинальное имя файла
-        }
+            type: DataTypes.STRING,
+        },
     });
 
     Task.associate = (models) => {
@@ -26,7 +25,7 @@ module.exports = (sequelize, DataTypes) => {
             through: 'TopicTasks',
             as: 'topics',
             foreignKey: 'TaskId',
-            otherKey: 'TopicId'
+            otherKey: 'TopicId',
         });
     };
 

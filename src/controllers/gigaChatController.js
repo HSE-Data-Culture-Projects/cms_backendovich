@@ -1,13 +1,14 @@
 const https = require('https');
+const logger = require('../utils/logger');
 
 exports.generateText = async (req, res) => {
     try {
         const { message } = req.body;
 
         const accessToken = req.headers.authorization;
-        console.log(req.headers);
         if (!accessToken) {
-            throw new Error('Failed to obtain access token');
+            logger.warn('No access token provided');
+            return res.status(401).json({ error: 'Access token required' });
         }
 
         const data = JSON.stringify({
@@ -16,9 +17,9 @@ exports.generateText = async (req, res) => {
             messages: [
                 {
                     role: 'user',
-                    content: message
-                }
-            ]
+                    content: message,
+                },
+            ],
         });
 
         const options = {
@@ -27,12 +28,12 @@ exports.generateText = async (req, res) => {
             path: '/api/v1/chat/completions',
             rejectUnauthorized: false,
             headers: {
-                'Authorization': `${accessToken}`,
+                Authorization: `${accessToken}`,
                 'Content-Type': 'application/json',
                 'X-Request-ID': 'your-request-id',
                 'X-Session-ID': 'your-session-id',
-                'X-Client-ID': 'your-client-id'
-            }
+                'X-Client-ID': 'your-client-id',
+            },
         };
 
         const reqExternal = https.request(options, (resExternal) => {
@@ -45,21 +46,21 @@ exports.generateText = async (req, res) => {
                     const parsedData = JSON.parse(response);
                     res.status(200).json(parsedData);
                 } catch (error) {
-                    console.error('Error parsing response:', error);
+                    logger.error('Error parsing response from GigaChat:', error);
                     res.status(500).json({ error: 'Failed to generate text' });
                 }
             });
         });
 
         reqExternal.on('error', (error) => {
-            console.error('Error generating text:', error);
+            logger.error('Error in request to GigaChat:', error);
             res.status(500).json({ error: 'Failed to generate text' });
         });
 
         reqExternal.write(data);
         reqExternal.end();
     } catch (error) {
-        console.error('Error in generateText:', error);
+        logger.error('Error in generateText:', error);
         res.status(500).json({ error: 'Failed to generate text' });
     }
 };

@@ -1,6 +1,5 @@
-// models/exam.js
 module.exports = (sequelize, DataTypes) => {
-    const Exam = sequelize.define("Exam", {
+    const Exam = sequelize.define('Exam', {
         id: {
             type: DataTypes.UUID,
             defaultValue: DataTypes.UUIDV4,
@@ -9,7 +8,7 @@ module.exports = (sequelize, DataTypes) => {
         name: {
             type: DataTypes.STRING,
             allowNull: false,
-        }
+        },
     });
 
     Exam.associate = (models) => {
@@ -17,7 +16,7 @@ module.exports = (sequelize, DataTypes) => {
             through: 'ExamTopics',
             as: 'topics',
             foreignKey: 'ExamId',
-            otherKey: 'TopicId'
+            otherKey: 'TopicId',
         });
     };
 

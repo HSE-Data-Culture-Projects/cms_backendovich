@@ -1,6 +1,5 @@
-// models/topic.js
 module.exports = (sequelize, DataTypes) => {
-    const Topic = sequelize.define("Topic", {
+    const Topic = sequelize.define('Topic', {
         id: {
             type: DataTypes.UUID,
             defaultValue: DataTypes.UUIDV4,
@@ -9,7 +8,7 @@ module.exports = (sequelize, DataTypes) => {
         name: {
             type: DataTypes.STRING,
             allowNull: false,
-        }
+        },
     });
 
     Topic.associate = (models) => {
@@ -17,13 +16,13 @@ module.exports = (sequelize, DataTypes) => {
             through: 'ExamTopics',
             as: 'exams',
             foreignKey: 'TopicId',
-            otherKey: 'ExamId'
+            otherKey: 'ExamId',
         });
         Topic.belongsToMany(models.Task, {
             through: 'TopicTasks',
             as: 'tasks',
             foreignKey: 'TopicId',
-            otherKey: 'TaskId'
+            otherKey: 'TaskId',
         });
     };
 

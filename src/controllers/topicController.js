@@ -1,16 +1,17 @@
 const db = require('../models');
-const Exam = db.Exam;
-const Topic = db.Topic;
+const { Exam, Topic } = db;
+const logger = require('../utils/logger');
 
-// Получение всех тем (с экзаменами)
+// Получение всех тем
 exports.getAllTopics = async (req, res) => {
     try {
         const topics = await Topic.findAll({
-            include: [{ model: Exam, as: 'exams' }] // Включаем связанные экзамены
+            include: [{ model: Exam, as: 'exams' }],
         });
+        logger.info('Fetched all topics');
         res.json(topics);
     } catch (error) {
-        console.error('Error fetching topics:', error);
+        logger.error('Error fetching topics:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
@@ -18,54 +19,54 @@ exports.getAllTopics = async (req, res) => {
 exports.getTopicsByExam = async (req, res) => {
     const { examId } = req.params;
 
-    // Проверяем, передан ли параметр examId
-    if (!examId) {
-        return res.status(400).json({ error: "examId is required" });
-    }
-
     try {
         const exam = await Exam.findByPk(examId, {
-            include: [{ model: db.Topic, as: 'topics' }]
+            include: [
+                {
+                    model: Topic,
+                    as: 'topics',
+                    through: { attributes: [] },
+                },
+            ],
         });
 
         if (!exam) {
+            logger.warn(`Exam not found: ${examId}`);
             return res.status(404).json({ message: 'Exam not found' });
         }
 
-        res.json(exam.topics);
+        logger.info(`Fetched topics for exam: ${examId}`);
+        res.status(200).json(exam.topics);
     } catch (error) {
-        console.error('Error fetching topics:', error);
+        logger.error(`Error fetching topics for exam ${examId}:`, error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
 
 
-// Добавление новой темы с привязкой к нескольким экзаменам
+// Добавление новой темы
 exports.addTopic = async (req, res) => {
     const { name, examIds } = req.body;
 
     try {
-        // Создаем новую тему
         const topic = await Topic.create({ name });
 
-        // Если переданы examIds, связываем тему с экзаменами
         if (examIds && examIds.length > 0) {
             const exams = await Exam.findAll({
-                where: {
-                    id: examIds // Ожидаем, что examIds будет массивом
-                }
+                where: { id: examIds },
             });
-            await topic.setExams(exams); // Устанавливаем связь между темой и экзаменами
+            await topic.setExams(exams);
         }
 
+        logger.info(`Created new topic: ${topic.id}`);
         res.status(201).json(topic);
     } catch (error) {
-        console.error('Error creating topic:', error);
+        logger.error('Error creating topic:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
 
-// Обновление темы с привязкой к нескольким экзаменам
+// Обновление темы
 exports.updateTopic = async (req, res) => {
     const { id } = req.params;
     const { name, examIds } = req.body;
@@ -73,59 +74,65 @@ exports.updateTopic = async (req, res) => {
     try {
         const topic = await Topic.findByPk(id);
         if (!topic) {
+            logger.warn(`Topic not found: ${id}`);
             return res.status(404).json({ message: 'Topic not found' });
         }
 
         await topic.update({ name });
 
-        // Привязка темы к экзаменам
         if (examIds && examIds.length > 0) {
             const exams = await Exam.findAll({
-                where: { id: examIds }
+                where: { id: examIds },
             });
             await topic.setExams(exams);
         }
 
+        logger.info(`Updated topic: ${id}`);
         res.status(200).json(topic);
     } catch (error) {
-        console.error('Error updating topic:', error);
+        logger.error(`Error updating topic ${id}:`, error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
 
-
+// Удаление темы
 exports.deleteTopic = async (req, res) => {
     const { id } = req.params;
 
     try {
         const topic = await Topic.findByPk(id);
         if (!topic) {
+            logger.warn(`Topic not found: ${id}`);
             return res.status(404).json({ message: 'Topic not found' });
         }
 
         await topic.destroy();
+        logger.info(`Deleted topic: ${id}`);
         res.status(200).json({ message: 'Topic deleted successfully' });
     } catch (error) {
+        logger.error(`Error deleting topic ${id}:`, error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
 
-// Получение одной темы по ID
+// Получение темы по ID
 exports.getTopicById = async (req, res) => {
     const { id } = req.params;
 
     try {
         const topic = await Topic.findByPk(id, {
-            include: [{ model: db.Exam, as: 'exams' }]
+            include: [{ model: Exam, as: 'exams' }],
         });
 
         if (!topic) {
+            logger.warn(`Topic not found: ${id}`);
             return res.status(404).json({ message: 'Topic not found' });
         }
 
+        logger.info(`Fetched topic: ${id}`);
         res.status(200).json(topic);
     } catch (error) {
-        console.error('Error fetching topic:', error);
+        logger.error(`Error fetching topic ${id}:`, error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
