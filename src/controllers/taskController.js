@@ -5,11 +5,23 @@ const fs = require('fs').promises;
 const path = require('path');
 
 // Проверка на существование файла перед удалением
-function safeUnlink(filepath) {
-    if (fs.existsSync(filepath)) {
-        fs.unlinkSync(filepath);
+
+// Асинхронная функция для безопасного удаления файла
+async function safeUnlink(filepath) {
+    try {
+        await fs.access(filepath); // Проверяем существование файла
+        await fs.unlink(filepath); // Удаляем файл
+        console.log('Файл успешно удален:', filepath);
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            console.warn('Файл не существует и не может быть удален:', filepath);
+        } else {
+            console.error('Ошибка при удалении файла:', error);
+            throw error; // Пробрасываем ошибку дальше для обработки
+        }
     }
 }
+
 
 // Получение всех задач (с файлами)
 // Получение всех задач (с файлами и темами)
@@ -156,25 +168,30 @@ exports.updateTask = async (req, res) => {
 // Удаление задачи и связанного с ней файла
 exports.deleteTask = async (req, res) => {
     const { id } = req.params;
+    console.log('Получен запрос на удаление задания с id:', id); // Отладочный вывод
 
     try {
         const task = await Task.findByPk(id);
         if (!task) {
+            console.log('Задание не найдено с id:', id); // Отладочный вывод
             return res.status(404).json({ message: 'Task not found' });
         }
 
         // Удаление файла из файловой системы, если он существует
         if (task.filepath) {
-            safeUnlink(task.filepath);
+            console.log('Попытка удалить файл:', task.filepath); // Отладочный вывод
+            await safeUnlink(task.filepath);
         }
 
         await task.destroy();
+        console.log('Задание успешно удалено с id:', id); // Отладочный вывод
         res.status(200).json({ message: 'Task deleted successfully' });
     } catch (error) {
-        console.error('Error deleting task:', error);
+        console.error('Ошибка при удалении задания:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
 
 // Импорт заданий из XML файла
 const xml2js = require('xml2js');
