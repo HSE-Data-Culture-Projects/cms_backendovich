@@ -36,6 +36,14 @@ exports.login = async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
+        logger.info(`JWT_SECRET: ${process.env.JWT_SECRET}`);
+        console.log('JWT_SECRET:', process.env.JWT_SECRET);
+
+        if (!process.env.JWT_SECRET) {
+            logger.error('JWT_SECRET is not defined');
+            return res.status(500).json({ error: 'Internal server error' });
+        }
+
         const payload = { id: user.id, username: user.username, role: user.role };
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
 
