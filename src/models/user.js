@@ -25,6 +25,10 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING,
             defaultValue: 'user', // Возможные роли: 'user', 'admin'
         },
+        refreshToken: { // Новое поле для хранения Refresh Token
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
     }, {
         hooks: {
             beforeCreate: async (user) => {
