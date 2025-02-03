@@ -1,19 +1,15 @@
 FROM node:18-alpine
 
-# Устанавливаем bash
 RUN apk add --no-cache bash
 
 WORKDIR /usr/src/app
 
 # Копируем файлы зависимостей
 COPY package*.json ./
-
 RUN npm install
 
-# Копируем wait-for-it.sh в рабочую директорию
+# Копируем wait-for-it.sh и делаем скрипт исполняемым
 COPY wait-for-it.sh ./
-
-# Делаем скрипт исполняемым
 RUN chmod +x wait-for-it.sh
 
 # Копируем остальной исходный код

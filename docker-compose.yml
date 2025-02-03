@@ -11,6 +11,8 @@ services:
       - db_data:/var/lib/mysql
     ports:
       - "3306:3306"
+    networks:
+      - my-network
 
   app:
     build: .
@@ -21,12 +23,10 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: development
-      # Параметры подключения к базе данных – они должны совпадать с настройками в config.json
       DB_HOST: db
       DB_USERNAME: root
       DB_PASSWORD: root
       DB_DATABASE: cms_dc_dev
-      # Параметры для JWT
       JWT_SECRET: "your_jwt_secret_key"
       JWT_EXPIRES_IN: "1h"
       JWT_REFRESH_SECRET: "your_jwt_refresh_secret_key"
@@ -35,6 +35,12 @@ services:
       - .:/usr/src/app
       - /usr/src/app/node_modules
     command: ["./wait-for-it.sh", "db:3306", "--", "node", "src/app.js"]
+    networks:
+      - my-network
 
 volumes:
   db_data:
+
+networks:
+  my-network:
+    external: true
