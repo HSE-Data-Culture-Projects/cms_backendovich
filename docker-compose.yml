@@ -7,8 +7,6 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: cms_dc_dev
-      MYSQL_USER: root
-      MYSQL_PASSWORD: root
     volumes:
       - db_data:/var/lib/mysql
     ports:
@@ -35,6 +33,8 @@ services:
       JWT_REFRESH_EXPIRES_IN: "7d"
     volumes:
       - .:/usr/src/app
+      - /usr/src/app/node_modules
+    command: ["./wait-for-it.sh", "db:3306", "--", "node", "src/app.js"]
 
 volumes:
   db_data:
