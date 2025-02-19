@@ -1,10 +1,10 @@
-const db = require('../models');
-const { Task, Topic } = db;
+// Импорт необходимых модулей
 const fs = require('fs').promises;
-const logger = require('../utils/logger');
 const xml2js = require('xml2js');
+const { Task } = require('../models');
+const logger = require('../utils/logger');
 
-// Функция для безопасного удаления файла
+// Функция для безопасного удаления файла (можно использовать уже существующую)
 async function safeUnlink(filepath) {
     try {
         await fs.access(filepath);
@@ -19,6 +19,69 @@ async function safeUnlink(filepath) {
         }
     }
 }
+
+// Новый метод для импорта нескольких XML файлов
+exports.importMultipleTasks = async (req, res) => {
+    const files = req.files;
+
+    if (!files || files.length === 0) {
+        logger.warn('No files uploaded for multiple import');
+        return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    let importedCount = 0;
+    const errors = [];
+
+    // Создаем экземпляр парсера для xml2js
+    const parser = new xml2js.Parser();
+
+    // Обрабатываем каждый файл
+    for (const file of files) {
+        try {
+            const xmlData = await fs.readFile(file.path, 'utf-8');
+            // Используем parseStringPromise для удобства
+            const parsedResult = await parser.parseStringPromise(xmlData);
+
+            // Предполагаем, что структура XML выглядит так: <tasks><task><content>...</content></task>...</tasks>
+            if (!parsedResult.tasks || !parsedResult.tasks.task) {
+                const errorMsg = `Invalid XML structure in file ${file.originalname}`;
+                logger.warn(errorMsg);
+                errors.push(errorMsg);
+                await safeUnlink(file.path);
+                continue;
+            }
+
+            const tasks = parsedResult.tasks.task;
+
+            // Создаем задачи для каждого task из файла
+            for (const taskData of tasks) {
+                if (taskData.content && taskData.content[0]) {
+                    await Task.create({ content: taskData.content[0] });
+                    importedCount++;
+                } else {
+                    const errorMsg = `Missing content in a task in file ${file.originalname}`;
+                    logger.warn(errorMsg);
+                    errors.push(errorMsg);
+                }
+            }
+
+            await safeUnlink(file.path);
+        } catch (err) {
+            const errorMsg = `Error processing file ${file.originalname}: ${err.message}`;
+            logger.error(errorMsg, err);
+            errors.push(errorMsg);
+            try {
+                await safeUnlink(file.path);
+            } catch (unlinkErr) {
+                logger.error(`Error deleting file ${file.originalname} after failure:`, unlinkErr);
+            }
+        }
+    }
+
+    logger.info(`Imported ${importedCount} tasks from ${files.length} files`);
+    res.status(201).json({ message: `${importedCount} tasks imported`, errors });
+};
+
 
 // Получение всех задач
 exports.getAllTasks = async (req, res) => {
