@@ -4,7 +4,13 @@ const multer = require('multer');
 const taskController = require('../controllers/taskController');
 const { authorize } = require('../middlewares/authMiddleware');
 
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({
+    dest: 'uploads/',
+    limits: {
+        fileSize: 500 * 1024 * 1024,
+    },
+});
+
 
 router.get('/', taskController.getAllTasks);
 router.post('/', authorize(['admin']), upload.single('file'), taskController.addTask);
