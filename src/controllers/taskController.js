@@ -1,6 +1,6 @@
 // Импорт необходимых модулей
 const fs = require('fs').promises;
-const { Task, Topic } = require('../models');
+const { Task } = require('../models');
 const logger = require('../utils/logger');
 
 async function safeUnlink(filepath) {
@@ -21,7 +21,7 @@ async function safeUnlink(filepath) {
 /**
  * Обработчик импорта XML с вопросами.
  * Из файла извлекаются блоки между тегами <question> и </question>
- * и сохраняется «сырое» содержимое внутри каждого такого тега в БД.
+ * и сохраняется «сырое» содержимое вместе с тегами в БД.
  */
 exports.importXmlQuestions = async (req, res) => {
     // Определяем, загружены ли файлы через req.files или req.file
@@ -38,7 +38,7 @@ exports.importXmlQuestions = async (req, res) => {
     const errors = [];
 
     // Регулярное выражение для поиска содержимого тега <question>…</question>
-    const questionRegex = /<question\b[^>]*>([\s\S]*?)<\/question>/gi;
+    const questionRegex = /<question\b[^>]*>[\s\S]*?<\/question>/gi;
 
     for (const file of files) {
         try {
@@ -46,10 +46,10 @@ exports.importXmlQuestions = async (req, res) => {
             let match;
             // Ищем все совпадения в файле
             while ((match = questionRegex.exec(xmlData)) !== null) {
-                // match[1] – содержимое между тегами <question> и </question>
-                const questionContent = match[1].trim();
+                // match[0] содержит весь найденный блок, включая теги
+                const questionBlock = match[0].trim();
                 try {
-                    await Task.create({ content: questionContent });
+                    await Task.create({ content: questionBlock });
                     importedCount++;
                 } catch (err) {
                     const errMsg = `Error importing question from file ${file.originalname}: ${err.message}`;
@@ -74,6 +74,7 @@ exports.importXmlQuestions = async (req, res) => {
     logger.info(`Imported ${importedCount} questions from ${files.length} file(s)`);
     res.status(201).json({ message: `${importedCount} questions imported`, errors });
 };
+
 
 
 // Получение всех задач
