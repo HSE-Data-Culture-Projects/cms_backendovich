@@ -1,6 +1,6 @@
 // Импорт необходимых модулей
 const fs = require('fs').promises;
-const { Task } = require('../models');
+const { Task, Topic } = require('../models'); // Добавлен Topic
 const logger = require('../utils/logger');
 
 async function safeUnlink(filepath) {
@@ -22,8 +22,13 @@ async function safeUnlink(filepath) {
  * Обработчик импорта XML с вопросами.
  * Из файла извлекаются блоки между тегами <question> и </question>
  * и сохраняется «сырое» содержимое вместе с тегами в БД.
+ * Если в теле запроса переданы topicIds, то для каждого созданного задания
+ * производится привязка к указанным темам.
  */
 exports.importXmlQuestions = async (req, res) => {
+    // Извлекаем topicIds из тела запроса (ожидается строка с id, разделёнными запятыми)
+    const { topicIds } = req.body;
+
     // Определяем, загружены ли файлы через req.files или req.file
     let files = [];
     if (req.files && req.files.length) {
@@ -49,7 +54,18 @@ exports.importXmlQuestions = async (req, res) => {
                 // match[0] содержит весь найденный блок, включая теги
                 const questionBlock = match[0].trim();
                 try {
-                    await Task.create({ content: questionBlock });
+                    // Создаем задание с извлечённым содержимым
+                    const createdTask = await Task.create({ content: questionBlock });
+                    // Если переданы topicIds, привязываем задание к этим темам
+                    if (topicIds && topicIds.trim() !== '') {
+                        const topicIdArray = topicIds.split(',');
+                        const topics = await Topic.findAll({
+                            where: { id: topicIdArray }
+                        });
+                        if (topics && topics.length > 0) {
+                            await createdTask.setTopics(topics);
+                        }
+                    }
                     importedCount++;
                 } catch (err) {
                     const errMsg = `Error importing question from file ${file.originalname}: ${err.message}`;
@@ -74,7 +90,6 @@ exports.importXmlQuestions = async (req, res) => {
     logger.info(`Imported ${importedCount} questions from ${files.length} file(s)`);
     res.status(201).json({ message: `${importedCount} questions imported`, errors });
 };
-
 
 
 // Получение всех задач
@@ -242,8 +257,6 @@ exports.deleteTask = async (req, res) => {
 // Импорт заданий из XML
 exports.importTasks = async (req, res) => {
     const file = req.file;
-    // Получаем переданные topicIds (если они есть)
-    const { topicIds } = req.body;
 
     if (!file) {
         logger.warn('No file uploaded for import');
@@ -252,7 +265,7 @@ exports.importTasks = async (req, res) => {
 
     try {
         const xmlData = await fs.readFile(file.path, 'utf-8');
-        const parser = new (require('xml2js')).Parser();
+        const parser = new xml2js.Parser();
 
         parser.parseString(xmlData, async (err, result) => {
             if (err) {
@@ -260,45 +273,19 @@ exports.importTasks = async (req, res) => {
                 return res.status(500).json({ error: 'Error parsing XML' });
             }
 
-            // Если структура стандартная, например: <tasks><task>...</task></tasks>
-            let tasksArray = [];
-            if (result.tasks && result.tasks.task) {
-                tasksArray = result.tasks.task;
-            } else {
-                // Или пытаемся извлечь блоки <question>...</question> с помощью регулярного выражения
-                const questionRegex = /<question\b[^>]*>[\s\S]*?<\/question>/gi;
-                let match;
-                while ((match = questionRegex.exec(xmlData)) !== null) {
-                    tasksArray.push({ content: [match[0].trim()] });
-                }
-            }
+            const tasks = result.tasks.task;
 
-            let importedCount = 0;
-            for (let taskData of tasksArray) {
-                try {
-                    // Здесь предполагается, что содержимое задания находится в taskData.content[0]
-                    const createdTask = await Task.create({ content: taskData.content[0] });
-                    importedCount++;
+            for (let taskData of tasks) {
+                const task = {
+                    content: taskData.content[0],
+                };
 
-                    // Если topicIds переданы, привязываем к заданию найденные темы
-                    if (topicIds && topicIds.trim() !== '') {
-                        const topicIdArray = topicIds.split(',');
-                        const topics = await Topic.findAll({
-                            where: { id: topicIdArray }
-                        });
-                        if (topics && topics.length > 0) {
-                            await createdTask.setTopics(topics);
-                        }
-                    }
-                } catch (err) {
-                    const errMsg = `Error importing task: ${err.message}`;
-                    logger.error(errMsg);
-                }
+                await Task.create(task);
             }
 
             await safeUnlink(file.path);
-            logger.info(`Imported ${importedCount} tasks from file ${file.originalname}`);
-            res.status(201).json({ message: `${importedCount} tasks imported` });
+            logger.info('Imported tasks from XML');
+            res.status(201).json({ message: 'Tasks imported successfully' });
         });
     } catch (error) {
         logger.error('Error importing tasks from XML:', error);
