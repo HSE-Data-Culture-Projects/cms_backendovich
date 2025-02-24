@@ -143,32 +143,13 @@ exports.getTasksByTopicId = async (req, res) => {
             ]
         });
 
-        const tasksWithXml = await Promise.all(tasks.map(async (task) => {
-            if (task.filepath) {
-                try {
-                    const xmlContent = await fs.readFile(task.filepath, 'utf-8');
-                    return {
-                        id: task.id,
-                        content: xmlContent
-                    };
-                } catch (fileError) {
-                    console.error(`Ошибка при чтении файла для задания ID ${task.id}:`, fileError);
-                    return {
-                        id: task.id,
-                        content: null,
-                        error: 'Не удалось прочитать файл задания.'
-                    };
-                }
-            } else {
-                return {
-                    id: task.id,
-                    content: null,
-                    error: 'Файл задания не указан.'
-                };
-            }
+        const tasksMapped = tasks.map(task => ({
+            id: task.id,
+            content: task.content,
+            topics: task.topics
         }));
 
-        res.status(200).json(tasksWithXml);
+        res.status(200).json(tasksMapped);
     } catch (error) {
         console.error('Ошибка при получении заданий по ID темы:', error);
         res.status(500).json({ error: 'Внутренняя ошибка сервера' });
