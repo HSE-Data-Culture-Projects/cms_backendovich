@@ -1,7 +1,6 @@
 // Импорт необходимых модулей
 const fs = require('fs').promises;
-const xml2js = require('xml2js');
-const { Task, Topic } = require('../models');
+const { Task } = require('../models');
 const logger = require('../utils/logger');
 
 async function safeUnlink(filepath) {
@@ -21,15 +20,11 @@ async function safeUnlink(filepath) {
 
 /**
  * Обработчик импорта XML с вопросами.
- * Поддерживаются три сценария:
- *  1. Один XML-файл, содержащий несколько вопросов (несколько тегов <question> внутри корневого тега, например, <quiz>).
- *  2. Несколько XML-файлов, каждый из которых содержит несколько вопросов.
- *  3. Один XML-файл, содержащий один вопрос (один тег <question>).
- *
- * Для каждого тега <question> создаётся отдельная запись в БД.
+ * Из файла извлекаются блоки между тегами <question> и </question>
+ * и сохраняется «сырое» содержимое внутри каждого такого тега в БД.
  */
 exports.importXmlQuestions = async (req, res) => {
-    // Определяем, загружены ли файлы через req.files (множественная загрузка) или через req.file (один файл)
+    // Определяем, загружены ли файлы через req.files или req.file
     let files = [];
     if (req.files && req.files.length) {
         files = req.files;
@@ -41,35 +36,20 @@ exports.importXmlQuestions = async (req, res) => {
 
     let importedCount = 0;
     const errors = [];
-    const parser = new xml2js.Parser();
 
-    // Обработка каждого файла
+    // Регулярное выражение для поиска содержимого тега <question>…</question>
+    const questionRegex = /<question\b[^>]*>([\s\S]*?)<\/question>/gi;
+
     for (const file of files) {
         try {
             const xmlData = await fs.readFile(file.path, 'utf-8');
-            const parsedResult = await parser.parseStringPromise(xmlData);
-
-            // Определяем, где лежат вопросы
-            let questions = [];
-            if (parsedResult.quiz && parsedResult.quiz.question) {
-                questions = parsedResult.quiz.question;
-            } else if (parsedResult.question) {
-                questions = [parsedResult.question];
-            } else {
-                const errorMsg = `Invalid XML structure in file ${file.originalname}`;
-                logger.warn(errorMsg);
-                errors.push(errorMsg);
-                await safeUnlink(file.path);
-                continue;
-            }
-
-            // Для каждого вопроса создаём отдельную запись
-            for (const q of questions) {
+            let match;
+            // Ищем все совпадения в файле
+            while ((match = questionRegex.exec(xmlData)) !== null) {
+                // match[1] – содержимое между тегами <question> и </question>
+                const questionContent = match[1].trim();
                 try {
-                    // Здесь можно доработать логику сохранения:
-                    // например, извлекать определённые поля из q,
-                    // а в данном примере сохраняется JSON‑представление вопроса.
-                    await Task.create({ content: JSON.stringify(q) });
+                    await Task.create({ content: questionContent });
                     importedCount++;
                 } catch (err) {
                     const errMsg = `Error importing question from file ${file.originalname}: ${err.message}`;
@@ -77,7 +57,6 @@ exports.importXmlQuestions = async (req, res) => {
                     errors.push(errMsg);
                 }
             }
-
             // Удаляем файл после обработки
             await safeUnlink(file.path);
         } catch (err) {
