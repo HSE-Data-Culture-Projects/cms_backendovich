@@ -26,7 +26,7 @@ async function safeUnlink(filepath) {
  * производится привязка к указанным темам.
  */
 exports.importXmlQuestions = async (req, res) => {
-    // Извлекаем topicIds из тела запроса (ожидается строка с id, разделёнными запятыми)
+    // Извлекаем topicIds из тела запроса (ожидается строка с id, разделёнными запятыми или JSON-массив)
     const { topicIds } = req.body;
 
     // Определяем, загружены ли файлы через req.files или req.file
@@ -45,6 +45,22 @@ exports.importXmlQuestions = async (req, res) => {
     // Регулярное выражение для поиска содержимого тега <question>…</question>
     const questionRegex = /<question\b[^>]*>[\s\S]*?<\/question>/gi;
 
+    // Попытаемся получить массив идентификаторов тем
+    let topicIdArray = [];
+    if (topicIds && topicIds.trim() !== '') {
+        try {
+            // Если topicIds передан как JSON-массив, распарсим его
+            topicIdArray = JSON.parse(topicIds);
+            if (!Array.isArray(topicIdArray)) {
+                topicIdArray = [topicIdArray];
+            }
+        } catch (e) {
+            // Если не получается, разделим строку по запятой
+            topicIdArray = topicIds.split(',').map(id => id.trim());
+        }
+        logger.info(`TOPIC FROM IMPORT: ${JSON.stringify(topicIdArray)}`);
+    }
+
     for (const file of files) {
         try {
             const xmlData = await fs.readFile(file.path, 'utf-8');
@@ -57,13 +73,14 @@ exports.importXmlQuestions = async (req, res) => {
                     // Создаем задание с извлечённым содержимым
                     const createdTask = await Task.create({ content: questionBlock });
                     // Если переданы topicIds, привязываем задание к этим темам
-                    if (topicIds && topicIds.trim() !== '') {
-                        const topicIdArray = topicIds.split(',');
+                    if (topicIdArray.length > 0) {
                         const topics = await Topic.findAll({
                             where: { id: topicIdArray }
                         });
                         if (topics && topics.length > 0) {
                             await createdTask.setTopics(topics);
+                        } else {
+                            logger.info('FOUND TOPICS: ', topics);
                         }
                     }
                     importedCount++;
