@@ -4,7 +4,6 @@ const xml2js = require('xml2js');
 const { Task } = require('../models');
 const logger = require('../utils/logger');
 
-// Функция для безопасного удаления файла (можно использовать уже существующую)
 async function safeUnlink(filepath) {
     try {
         await fs.access(filepath);
@@ -20,30 +19,43 @@ async function safeUnlink(filepath) {
     }
 }
 
-// Новый метод для импорта нескольких XML файлов
-exports.importMultipleTasks = async (req, res) => {
-    const files = req.files;
-
-    if (!files || files.length === 0) {
-        logger.warn('No files uploaded for multiple import');
-        return res.status(400).json({ error: 'No files uploaded' });
+/**
+ * Обработчик импорта XML с вопросами.
+ * Поддерживаются три сценария:
+ *  1. Один XML-файл, содержащий несколько вопросов (несколько тегов <question> внутри корневого тега, например, <quiz>).
+ *  2. Несколько XML-файлов, каждый из которых содержит несколько вопросов.
+ *  3. Один XML-файл, содержащий один вопрос (один тег <question>).
+ *
+ * Для каждого тега <question> создаётся отдельная запись в БД.
+ */
+exports.importXmlQuestions = async (req, res) => {
+    // Определяем, загружены ли файлы через req.files (множественная загрузка) или через req.file (один файл)
+    let files = [];
+    if (req.files && req.files.length) {
+        files = req.files;
+    } else if (req.file) {
+        files.push(req.file);
+    } else {
+        return res.status(400).json({ error: 'No file uploaded' });
     }
 
     let importedCount = 0;
     const errors = [];
-
-    // Создаем экземпляр парсера для xml2js
     const parser = new xml2js.Parser();
 
-    // Обрабатываем каждый файл
+    // Обработка каждого файла
     for (const file of files) {
         try {
             const xmlData = await fs.readFile(file.path, 'utf-8');
-            // Используем parseStringPromise для удобства
             const parsedResult = await parser.parseStringPromise(xmlData);
 
-            // Предполагаем, что структура XML выглядит так: <tasks><task><content>...</content></task>...</tasks>
-            if (!parsedResult.tasks || !parsedResult.tasks.task) {
+            // Определяем, где лежат вопросы
+            let questions = [];
+            if (parsedResult.quiz && parsedResult.quiz.question) {
+                questions = parsedResult.quiz.question;
+            } else if (parsedResult.question) {
+                questions = [parsedResult.question];
+            } else {
                 const errorMsg = `Invalid XML structure in file ${file.originalname}`;
                 logger.warn(errorMsg);
                 errors.push(errorMsg);
@@ -51,25 +63,27 @@ exports.importMultipleTasks = async (req, res) => {
                 continue;
             }
 
-            const tasks = parsedResult.tasks.task;
-
-            // Создаем задачи для каждого task из файла
-            for (const taskData of tasks) {
-                if (taskData.content && taskData.content[0]) {
-                    await Task.create({ content: taskData.content[0] });
+            // Для каждого вопроса создаём отдельную запись
+            for (const q of questions) {
+                try {
+                    // Здесь можно доработать логику сохранения:
+                    // например, извлекать определённые поля из q,
+                    // а в данном примере сохраняется JSON‑представление вопроса.
+                    await Task.create({ content: JSON.stringify(q) });
                     importedCount++;
-                } else {
-                    const errorMsg = `Missing content in a task in file ${file.originalname}`;
-                    logger.warn(errorMsg);
-                    errors.push(errorMsg);
+                } catch (err) {
+                    const errMsg = `Error importing question from file ${file.originalname}: ${err.message}`;
+                    logger.error(errMsg);
+                    errors.push(errMsg);
                 }
             }
 
+            // Удаляем файл после обработки
             await safeUnlink(file.path);
         } catch (err) {
-            const errorMsg = `Error processing file ${file.originalname}: ${err.message}`;
-            logger.error(errorMsg, err);
-            errors.push(errorMsg);
+            const errMsg = `Error processing file ${file.originalname}: ${err.message}`;
+            logger.error(errMsg);
+            errors.push(errMsg);
             try {
                 await safeUnlink(file.path);
             } catch (unlinkErr) {
@@ -78,8 +92,8 @@ exports.importMultipleTasks = async (req, res) => {
         }
     }
 
-    logger.info(`Imported ${importedCount} tasks from ${files.length} files`);
-    res.status(201).json({ message: `${importedCount} tasks imported`, errors });
+    logger.info(`Imported ${importedCount} questions from ${files.length} file(s)`);
+    res.status(201).json({ message: `${importedCount} questions imported`, errors });
 };
 
 
