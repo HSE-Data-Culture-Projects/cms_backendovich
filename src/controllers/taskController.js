@@ -1,7 +1,7 @@
 // Импорт необходимых модулей
 const fs = require('fs').promises;
 const xml2js = require('xml2js');
-const { Task } = require('../models');
+const { Task, Topic } = require('../models');
 const logger = require('../utils/logger');
 
 async function safeUnlink(filepath) {
